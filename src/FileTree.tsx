@@ -38,17 +38,17 @@ function TreeNodeItem({
   onSelect: (path: string) => void
 }) {
   const [expanded, setExpanded] = useState(node.expanded ?? false)
-  const indent = depth * 12
+  const indent = depth * 11
 
   if (node.type === 'folder') {
     return (
       <>
         <div
           className="file-tree-item folder"
-          style={{ paddingLeft: 8 + indent }}
+          style={{ paddingLeft: 6 + indent }}
           onClick={() => setExpanded(e => !e)}
         >
-          <span className="tree-icon" style={{ color: 'var(--fg-dim)', width: 12 }}>
+          <span className="tree-icon" style={{ color: 'var(--fg-dim)', width: 10 }}>
             {expanded
               ? <ChevronDown size={10} />
               : <ChevronRight size={10} />
@@ -77,11 +77,11 @@ function TreeNodeItem({
   return (
     <div
       className={`file-tree-item ${isActive ? 'active' : ''}`}
-      style={{ paddingLeft: 8 + indent }}
+      style={{ paddingLeft: 6 + indent }}
       onClick={() => onSelect(node.path)}
       title={node.path}
     >
-      <span className="tree-icon" style={{ width: 12, flexShrink: 0 }} />
+      <span className="tree-icon" style={{ width: 10, flexShrink: 0 }} />
       <span className="tree-icon">
         <FileIcon name={node.name} size={13} />
       </span>
@@ -97,7 +97,7 @@ export function FileTree({ files, selectedPath, onSelect, searchQuery = '' }: Fi
   if (filtered.length === 0) {
     return (
       <div className="sidebar-empty">
-        <p style={{ fontSize: 12, color: 'var(--fg-dim)' }}>
+        <p style={{ fontSize: 11.5, color: 'var(--fg-dim)' }}>
           {searchQuery ? 'No files match your search' : 'No files in this commit'}
         </p>
       </div>

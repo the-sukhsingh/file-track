@@ -29,8 +29,8 @@ export function CommitList({ commits, selectedHash, onSelect, searchQuery = '' }
   if (filtered.length === 0) {
     return (
       <div className="sidebar-empty">
-        <GitCommit size={28} style={{ opacity: 0.3 }} />
-        <p style={{ fontSize: 12 }}>
+        <GitCommit size={24} style={{ opacity: 0.3 }} />
+        <p style={{ fontSize: 11.5 }}>
           {searchQuery ? 'No commits match your search' : 'No commits found'}
         </p>
       </div>
@@ -50,10 +50,10 @@ export function CommitList({ commits, selectedHash, onSelect, searchQuery = '' }
             onClick={() => onSelect(commit)}
             title={commit.message}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div className="flex items-center gap-1.5 min-w-0">
               <span className="commit-hash">{commit.shortHash}</span>
-              {refs.map(ref => (
-                <span key={ref} className="ref-tag">
+              {refs.slice(0, 2).map(ref => (
+                <span key={ref} className="ref-tag truncate max-w-[120px]">
                   {ref.replace('HEAD -> ', '').replace('origin/', '')}
                 </span>
               ))}
@@ -62,11 +62,11 @@ export function CommitList({ commits, selectedHash, onSelect, searchQuery = '' }
             <div className="commit-meta">
               <span className="commit-author">
                 <span className="commit-avatar">{getInitials(commit.author)}</span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>
+                <span className="truncate max-w-[95px]">
                   {commit.author}
                 </span>
               </span>
-              <span style={{ flexShrink: 0 }}>{formatRelativeTime(commit.date)}</span>
+              <span className="shrink-0 text-[10px] opacity-75">{formatRelativeTime(commit.date)}</span>
             </div>
           </li>
         )

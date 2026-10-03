@@ -12,7 +12,7 @@ import { formatDate, getLanguageLabel, getFileType } from './utils'
 import {
   Sun, Moon, GitBranch, GitCommit, FolderOpen, Search,
   X, ChevronDown, ChevronRight, ChevronLeft, Layers,
-  Check, Diff, RefreshCw,
+  Check, Diff, RefreshCw, Copy, FileText,
 } from 'lucide-react'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ function ActivityBtn({
 }
 
 // ─── Repo path input dialog ────────────────────────────────────────────────────
-function RepoOpenDialog({ onOpen }: { onOpen: (path: string) => void }) {
+function RepoOpenDialog({ onOpen, onClose }: { onOpen: (path: string) => void; onClose?: () => void }) {
   const [path, setPath] = useState('')
   const [error, setError] = useState('')
 
@@ -104,26 +104,49 @@ function RepoOpenDialog({ onOpen }: { onOpen: (path: string) => void }) {
     }
   }
 
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && onClose) {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000, backdropFilter: 'blur(4px)',
-    }}>
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 1000, backdropFilter: 'blur(3px)',
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) onClose()
+      }}
+    >
       <div style={{
         background: 'var(--bg)',
         border: '1px solid var(--border)',
-        borderRadius: 10,
-        padding: 24,
-        width: 480,
+        borderRadius: 'var(--radius-lg)',
+        padding: 22,
+        width: 460,
         maxWidth: '90vw',
+        boxShadow: '0 12px 36px rgba(0,0,0,0.18)',
       }} className="fade-in">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <FolderOpen size={20} style={{ color: 'var(--accent)' }} />
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--fg)' }}>Open Git Repository</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FolderOpen size={18} style={{ color: 'var(--accent)' }} />
+            <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--fg)' }}>Open Git Repository</h2>
+          </div>
+          {onClose && (
+            <button className="icon-btn icon-btn-sm" onClick={onClose} title="Close (Esc)">
+              <X size={13} />
+            </button>
+          )}
         </div>
-        <p style={{ fontSize: 12, color: 'var(--fg-muted)', margin: '0 0 16px', lineHeight: 1.6 }}>
-          Enter the absolute path to a folder containing a <code style={{ fontSize: 11, background: 'var(--bg-muted)', padding: '1px 4px', borderRadius: 3 }}>.git</code> directory.
+        <p style={{ fontSize: 12, color: 'var(--fg-muted)', margin: '0 0 14px', lineHeight: 1.5 }}>
+          Enter the full local path to a repository folder containing a <code style={{ fontSize: 10.5, background: 'var(--bg-muted)', padding: '1.5px 4px', borderRadius: 3 }}>.git</code> directory.
         </p>
         <form onSubmit={handleSubmit}>
           <input
@@ -131,24 +154,31 @@ function RepoOpenDialog({ onOpen }: { onOpen: (path: string) => void }) {
             style={{ width: '100%', marginBottom: 8 }}
             value={path}
             onChange={e => { setPath(e.target.value); setError('') }}
-            placeholder="e.g. C:\Users\you\my-project or /home/you/my-project"
+            placeholder="e.g. E:\Projects\browser-explorer"
             autoFocus
           />
           {error && <p style={{ fontSize: 11, color: 'var(--removed)', margin: '0 0 8px' }}>{error}</p>}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+            {onClose && (
+              <button
+                type="button"
+                className="icon-btn"
+                style={{ width: 'auto', padding: '0 12px', fontSize: 12 }}
+                onClick={onClose}
+              >
+                Cancel
+              </button>
+            )}
             <button
               type="submit"
               className="open-btn"
-              style={{ padding: '7px 16px', marginTop: 0 }}
+              style={{ padding: '6px 14px', marginTop: 0 }}
               disabled={!path.trim()}
             >
-              Open Repository
+              Open
             </button>
           </div>
         </form>
-        <p style={{ fontSize: 11, color: 'var(--fg-dim)', margin: '12px 0 0', lineHeight: 1.5 }}>
-          <strong>Note:</strong> The server must be running to read git data. Run <code style={{ fontSize: 10, background: 'var(--bg-muted)', padding: '1px 4px', borderRadius: 3 }}>npm run dev</code> from the project root.
-        </p>
       </div>
     </div>
   )
@@ -534,17 +564,47 @@ function AppInner() {
     if (repoPath) loadRepo(repoPath)
   }, [repoPath, loadRepo])
 
+  // ─── Copy path ─────────────────────────────────────────────────────────────
+  const [copied, setCopied] = useState(false)
+  const copyPath = useCallback(() => {
+    if (activeTab) {
+      navigator.clipboard.writeText(activeTab.filePath)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1400)
+    }
+  }, [activeTab])
+
   // ─── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === 'w' && activeTabId) {
+      // Ctrl+W: Close active tab
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'w' || e.key === 'W') && activeTabId) {
         e.preventDefault()
         closeTab(activeTabId)
+      }
+      // Ctrl+B: Toggle commit sidebar
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault()
+        setLeftSidebarOpen(o => !o)
+      }
+      // Ctrl+O: Open repository dialog
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'o' || e.key === 'O')) {
+        e.preventDefault()
+        setShowOpenDialog(true)
+      }
+      // Ctrl+Tab: Cycle through open tabs
+      if (e.ctrlKey && e.key === 'Tab' && tabs.length > 1) {
+        e.preventDefault()
+        const idx = tabs.findIndex(t => t.id === activeTabId)
+        const nextIdx = e.shiftKey
+          ? (idx - 1 + tabs.length) % tabs.length
+          : (idx + 1) % tabs.length
+        setActiveTabId(tabs[nextIdx].id)
       }
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
-  }, [activeTabId, closeTab])
+  }, [activeTabId, closeTab, tabs])
 
   // ─── Render active tab content ─────────────────────────────────────────────
   const renderTabContent = () => {

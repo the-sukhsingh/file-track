@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react'
 import type { CommitSummary } from './types'
-import { formatDate, getInitials } from './utils'
+import { formatDate } from './utils'
 import { Diff } from 'lucide-react'
 
 interface TimelineProps {
@@ -16,7 +16,7 @@ export function Timeline({ commits, activeCommitHash, activeFilePath, onSelect, 
   const activeRef = useRef<HTMLDivElement>(null)
   const [hoveredHash, setHoveredHash] = useState<string | null>(null)
 
-  // Scroll active point into view when it changes
+  // Scroll active point smoothly into view when active commit changes
   useEffect(() => {
     if (activeRef.current) {
       activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
@@ -31,33 +31,32 @@ export function Timeline({ commits, activeCommitHash, activeFilePath, onSelect, 
         </div>
         <div className="timeline-track">
           <span className="timeline-empty">
-            {activeFilePath ? 'No commit history for this file' : 'Open a file to see its change history'}
+            {activeFilePath ? 'No commit history found for this file' : 'Open a file to explore its commit timeline'}
           </span>
         </div>
       </div>
     )
   }
 
-  // reversed = oldest first for display (left to right = older to newer)
+  // Oldest first for chronological left-to-right progression
   const displayCommits = [...commits].reverse()
-
-  const activeIdx = displayCommits.findIndex(c => c.hash === activeCommitHash)
 
   return (
     <div className="timeline-bar">
       <div className="timeline-header">
-        <span className="timeline-label">
-          File Timeline
+        <div className="flex items-center gap-1.5">
+          <span className="timeline-label">File Timeline</span>
           {activeFilePath && (
-            <span style={{ fontWeight: 400, marginLeft: 6, color: 'var(--fg-dim)', fontSize: 9, fontFamily: 'inherit' }}>
-              {activeFilePath.split('/').pop()}
+            <span className="text-[10px] text-[var(--fg-dim)] font-mono opacity-80">
+              · {activeFilePath.split('/').pop()}
             </span>
           )}
-        </span>
-        <span style={{ fontSize: 11, color: 'var(--fg-dim)' }}>
+        </div>
+        <span className="text-[10px] font-medium text-[var(--fg-dim)]">
           {commits.length} change{commits.length !== 1 ? 's' : ''}
         </span>
       </div>
+
       <div className="timeline-track" ref={trackRef}>
         <div className="timeline-line" />
         {displayCommits.map((commit, i) => {
@@ -72,65 +71,56 @@ export function Timeline({ commits, activeCommitHash, activeFilePath, onSelect, 
               className={`timeline-point ${isActive ? 'active' : ''}`}
               onMouseEnter={() => setHoveredHash(commit.hash)}
               onMouseLeave={() => setHoveredHash(null)}
-              style={{ position: 'relative' }}
             >
               <div
                 className="timeline-dot"
                 onClick={() => onSelect(commit)}
+                role="button"
+                tabIndex={0}
+                aria-label={`Jump to commit ${commit.shortHash}`}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    onSelect(commit)
+                  }
+                }}
               />
               <span className="timeline-point-label">{commit.shortHash}</span>
 
-              {/* Tooltip on hover */}
+              {/* Floating Apple-Style Hover Card */}
               {isHovered && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: '100%',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  marginBottom: 6,
-                  background: 'var(--fg)',
-                  color: 'var(--bg)',
-                  borderRadius: 5,
-                  padding: '6px 8px',
-                  fontSize: 11,
-                  whiteSpace: 'nowrap',
-                  zIndex: 100,
-                  maxWidth: 220,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  pointerEvents: 'none',
-                  lineHeight: 1.4,
-                }}>
-                  <div style={{ fontFamily: 'monospace', fontSize: 10, opacity: 0.7, marginBottom: 2 }}>{commit.shortHash}</div>
-                  <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{commit.message}</div>
-                  <div style={{ opacity: 0.7, marginTop: 2 }}>{commit.author} · {formatDate(commit.date)}</div>
+                <div
+                  className="fade-in pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 z-50 min-w-[180px] max-w-[240px] rounded-lg p-2.5 shadow-lg border border-[var(--border)] bg-[var(--bg-translucent)] backdrop-blur-xl text-left"
+                  style={{ transformOrigin: 'bottom center' }}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="font-mono text-[10px] font-bold text-[var(--accent)]">
+                      {commit.shortHash}
+                    </span>
+                    <span className="text-[9.5px] text-[var(--fg-dim)]">
+                      {formatDate(commit.date)}
+                    </span>
+                  </div>
+                  <div className="text-[11.5px] font-medium text-[var(--fg)] leading-snug line-clamp-2">
+                    {commit.message}
+                  </div>
+                  <div className="mt-1 text-[10px] text-[var(--fg-muted)] truncate">
+                    {commit.author}
+                  </div>
                 </div>
               )}
 
-              {/* Diff button (appears on hover, only if there's a previous commit) */}
+              {/* Quick Diff Action Button */}
               {isHovered && prevCommit && onDiff && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: -4,
-                    right: -4,
-                    background: 'var(--accent)',
-                    color: 'white',
-                    borderRadius: 4,
-                    width: 16,
-                    height: 16,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    zIndex: 10,
-                    pointerEvents: 'auto',
+                <button
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded bg-[var(--accent)] text-white flex items-center justify-center cursor-pointer z-20 shadow-sm transition-transform duration-100 hover:scale-110 active:scale-95 border-none"
+                  onClick={e => {
+                    e.stopPropagation()
+                    onDiff(prevCommit, commit)
                   }}
-                  onClick={e => { e.stopPropagation(); onDiff(prevCommit, commit) }}
-                  title={`Diff ${prevCommit.shortHash} → ${commit.shortHash}`}
+                  title={`View Diff with ${prevCommit.shortHash}`}
                 >
                   <Diff size={9} />
-                </div>
+                </button>
               )}
             </div>
           )
