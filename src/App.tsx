@@ -585,6 +585,9 @@ function AppInner() {
       <CodeViewer
         content={fileData?.content ?? null}
         fileName={activeTab.fileName}
+        filePath={activeTab.filePath}
+        repoPath={repoPath}
+        commitHash={activeTab.commitHash}
         syntaxTheme={syntaxTheme}
         binary={fileData?.binary}
         loading={fileData?.loading ?? true}

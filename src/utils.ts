@@ -5,7 +5,7 @@ export type FileType =
   | 'java' | 'cpp' | 'c' | 'rust' | 'go'
   | 'sql' | 'php' | 'ruby' | 'shell' | 'swift'
   | 'kotlin' | 'r' | 'julia' | 'dart' | 'scala'
-  | 'notebook' | 'image' | 'svg' | 'pdf' | 'binary' | 'plain'
+  | 'notebook' | 'image' | 'video' | 'audio' | 'svg' | 'pdf' | 'binary' | 'plain'
 
 export function getExtension(name: string): string {
   const dot = name.lastIndexOf('.')
@@ -45,7 +45,9 @@ export function getFileType(name: string): FileType {
     case 'dart': return 'dart'
     case 'scala': return 'scala'
     case 'ipynb': return 'notebook'
-    case 'png': case 'jpg': case 'jpeg': case 'gif': case 'webp': case 'bmp': case 'ico': return 'image'
+    case 'png': case 'jpg': case 'jpeg': case 'gif': case 'webp': case 'bmp': case 'ico': case 'avif': return 'image'
+    case 'mp4': case 'webm': case 'ogv': case 'mov': case 'mkv': return 'video'
+    case 'mp3': case 'wav': case 'ogg': case 'flac': case 'm4a': case 'aac': return 'audio'
     case 'pdf': return 'pdf'
     case 'exe': case 'bin': case 'dll': case 'so': case 'dylib': case 'class': case 'wasm': return 'binary'
     default: return 'plain'
@@ -60,8 +62,8 @@ export function getLanguageLabel(type: FileType): string {
     java: 'Java', cpp: 'C++', c: 'C', rust: 'Rust', go: 'Go',
     sql: 'SQL', php: 'PHP', ruby: 'Ruby', shell: 'Shell', swift: 'Swift',
     kotlin: 'Kotlin', r: 'R', julia: 'Julia', dart: 'Dart', scala: 'Scala',
-    notebook: 'Jupyter Notebook', image: 'Image', svg: 'SVG',
-    pdf: 'PDF', binary: 'Binary', plain: 'Plain Text',
+    notebook: 'Jupyter Notebook', image: 'Image', video: 'Video', audio: 'Audio', svg: 'SVG',
+    pdf: 'PDF Document', binary: 'Binary', plain: 'Plain Text',
   }
   return labels[type] || 'Text'
 }

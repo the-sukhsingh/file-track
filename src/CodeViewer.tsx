@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
@@ -18,10 +18,25 @@ import { EditorView } from '@codemirror/view'
 import { getSyntaxThemeExtension } from './syntaxThemes'
 import { getFileType, type FileType } from './utils'
 import type { SyntaxTheme } from './ThemeContext'
+import { api } from './api'
+import {
+  ExternalLink,
+  Download,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  FileText,
+  Music,
+  Video as VideoIcon,
+  Image as ImageIcon,
+} from 'lucide-react'
 
 interface CodeViewerProps {
   content: string | null
   fileName: string
+  filePath?: string
+  repoPath?: string
+  commitHash?: string
   syntaxTheme: SyntaxTheme
   binary?: boolean
   loading?: boolean
@@ -122,7 +137,6 @@ function NotebookViewer({ content, syntaxTheme }: { content: string; syntaxTheme
                     const plain = out.data['text/plain']
                     text = Array.isArray(plain) ? plain.join('') : plain
                   }
-                  // Check for image output
                   const imgData = out.data?.['image/png']
                   if (imgData) {
                     const src = Array.isArray(imgData) ? imgData.join('') : imgData
@@ -140,8 +154,191 @@ function NotebookViewer({ content, syntaxTheme }: { content: string; syntaxTheme
   )
 }
 
-export function CodeViewer({ content, fileName, syntaxTheme, binary = false, loading = false }: CodeViewerProps) {
+function ImageViewer({ rawUrl, fileName }: { rawUrl: string; fileName: string }) {
+  const [zoom, setZoom] = useState(1)
+
+  return (
+    <div className="flex flex-col h-full w-full overflow-hidden">
+      {/* Media toolbar */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg)] text-xs text-[var(--fg-muted)]">
+        <div className="flex items-center gap-2">
+          <ImageIcon size={14} className="text-[var(--accent)]" />
+          <span className="font-medium text-[var(--fg)]">{fileName}</span>
+          <span className="text-[10px] text-[var(--fg-dim)] bg-[var(--bg-muted)] px-1.5 py-0.5 rounded">
+            {Math.round(zoom * 100)}%
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setZoom(z => Math.max(0.2, z - 0.25))}
+            className="icon-btn icon-btn-sm"
+            title="Zoom Out"
+          >
+            <ZoomOut size={13} />
+          </button>
+          <button
+            onClick={() => setZoom(1)}
+            className="icon-btn icon-btn-sm"
+            title="Reset Zoom"
+          >
+            <RotateCcw size={13} />
+          </button>
+          <button
+            onClick={() => setZoom(z => Math.min(4, z + 0.25))}
+            className="icon-btn icon-btn-sm"
+            title="Zoom In"
+          >
+            <ZoomIn size={13} />
+          </button>
+          <a
+            href={rawUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="icon-btn icon-btn-sm"
+            title="Open in new tab"
+          >
+            <ExternalLink size={13} />
+          </a>
+          <a
+            href={rawUrl}
+            download={fileName}
+            className="icon-btn icon-btn-sm"
+            title="Download"
+          >
+            <Download size={13} />
+          </a>
+        </div>
+      </div>
+
+      {/* Image display */}
+      <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-[radial-gradient(var(--border)_1px,transparent_1px)] [background-size:16px_16px]">
+        <img
+          src={rawUrl}
+          alt={fileName}
+          style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+          className="max-w-full max-h-full object-contain rounded transition-transform duration-100 shadow-sm border border-[var(--border-subtle)] bg-[var(--bg)]"
+        />
+      </div>
+    </div>
+  )
+}
+
+function PdfViewer({ rawUrl, fileName }: { rawUrl: string; fileName: string }) {
+  return (
+    <div className="flex flex-col h-full w-full overflow-hidden bg-[var(--bg)]">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg)] text-xs text-[var(--fg-muted)]">
+        <div className="flex items-center gap-2">
+          <FileText size={14} className="text-[var(--accent)]" />
+          <span className="font-medium text-[var(--fg)]">{fileName}</span>
+          <span className="text-[10px] text-[var(--fg-dim)] bg-[var(--bg-muted)] px-1.5 py-0.5 rounded">PDF</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <a
+            href={rawUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="icon-btn icon-btn-sm"
+            title="Open PDF in new tab"
+          >
+            <ExternalLink size={13} />
+          </a>
+          <a
+            href={rawUrl}
+            download={fileName}
+            className="icon-btn icon-btn-sm"
+            title="Download PDF"
+          >
+            <Download size={13} />
+          </a>
+        </div>
+      </div>
+      <div className="flex-1 w-full h-full bg-neutral-900/5">
+        <iframe
+          src={rawUrl}
+          title={fileName}
+          className="w-full h-full border-none"
+        />
+      </div>
+    </div>
+  )
+}
+
+function VideoViewer({ rawUrl, fileName }: { rawUrl: string; fileName: string }) {
+  return (
+    <div className="flex flex-col h-full w-full overflow-hidden bg-[var(--bg)]">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg)] text-xs text-[var(--fg-muted)]">
+        <div className="flex items-center gap-2">
+          <VideoIcon size={14} className="text-[var(--accent)]" />
+          <span className="font-medium text-[var(--fg)]">{fileName}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <a href={rawUrl} target="_blank" rel="noopener noreferrer" className="icon-btn icon-btn-sm" title="Open in new tab">
+            <ExternalLink size={13} />
+          </a>
+          <a href={rawUrl} download={fileName} className="icon-btn icon-btn-sm" title="Download">
+            <Download size={13} />
+          </a>
+        </div>
+      </div>
+      <div className="flex-1 flex items-center justify-center p-6 bg-black/10">
+        <video
+          src={rawUrl}
+          controls
+          className="max-w-full max-h-[80vh] rounded shadow-md bg-black"
+        >
+          Your browser does not support HTML5 video.
+        </video>
+      </div>
+    </div>
+  )
+}
+
+function AudioViewer({ rawUrl, fileName }: { rawUrl: string; fileName: string }) {
+  return (
+    <div className="flex flex-col h-full w-full overflow-hidden bg-[var(--bg)]">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg)] text-xs text-[var(--fg-muted)]">
+        <div className="flex items-center gap-2">
+          <Music size={14} className="text-[var(--accent)]" />
+          <span className="font-medium text-[var(--fg)]">{fileName}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <a href={rawUrl} download={fileName} className="icon-btn icon-btn-sm" title="Download">
+            <Download size={13} />
+          </a>
+        </div>
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 bg-[var(--bg-subtle)]">
+        <div className="w-16 h-16 rounded-full bg-[var(--accent-muted)] flex items-center justify-center text-[var(--accent)]">
+          <Music size={28} />
+        </div>
+        <div className="text-center">
+          <div className="font-medium text-sm text-[var(--fg)]">{fileName}</div>
+          <div className="text-xs text-[var(--fg-dim)] mt-0.5">Audio playback</div>
+        </div>
+        <audio src={rawUrl} controls className="w-full max-w-md mt-2" />
+      </div>
+    </div>
+  )
+}
+
+export function CodeViewer({
+  content,
+  fileName,
+  filePath,
+  repoPath,
+  commitHash,
+  syntaxTheme,
+  binary = false,
+  loading = false,
+}: CodeViewerProps) {
   const fileType = getFileType(fileName)
+
+  const rawUrl = useMemo(() => {
+    if (repoPath && commitHash && (filePath || fileName)) {
+      return api.getRawFileUrl(repoPath, commitHash, filePath || fileName)
+    }
+    return ''
+  }, [repoPath, commitHash, filePath, fileName])
 
   const extensions = useMemo(() => [
     ...getLanguageExtension(fileType),
@@ -159,14 +356,45 @@ export function CodeViewer({ content, fileName, syntaxTheme, binary = false, loa
     )
   }
 
+  // 1. PDF files
+  if (fileType === 'pdf' && rawUrl) {
+    return <PdfViewer rawUrl={rawUrl} fileName={fileName} />
+  }
+
+  // 2. Image files
+  if (fileType === 'image' && rawUrl) {
+    return <ImageViewer rawUrl={rawUrl} fileName={fileName} />
+  }
+
+  // 3. Video files
+  if (fileType === 'video' && rawUrl) {
+    return <VideoViewer rawUrl={rawUrl} fileName={fileName} />
+  }
+
+  // 4. Audio files
+  if (fileType === 'audio' && rawUrl) {
+    return <AudioViewer rawUrl={rawUrl} fileName={fileName} />
+  }
+
+  // 5. Binary files
   if (binary) {
     return (
       <div className="unsupported-file">
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" opacity="0.3">
-          <rect x="4" y="4" width="28" height="28" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
-          <text x="9" y="22" fontSize="10" fill="currentColor" fontFamily="monospace">BIN</text>
-        </svg>
-        <p style={{ color: 'var(--fg-dim)', marginTop: 8, fontSize: 12 }}>Binary file — cannot be previewed</p>
+        <div className="w-12 h-12 rounded-lg bg-[var(--bg-muted)] border border-[var(--border)] flex items-center justify-center text-[var(--fg-dim)] mb-2 font-mono text-xs font-semibold">
+          BIN
+        </div>
+        <p style={{ color: 'var(--fg)', fontWeight: 500, fontSize: 13, margin: '0 0 2px' }}>{fileName}</p>
+        <p style={{ color: 'var(--fg-dim)', fontSize: 12, margin: '0 0 12px' }}>Binary file — cannot be edited as text</p>
+        {rawUrl && (
+          <a
+            href={rawUrl}
+            download={fileName}
+            className="open-btn flex items-center gap-1.5 px-3 py-1.5 text-xs"
+          >
+            <Download size={13} />
+            Download File
+          </a>
+        )}
       </div>
     )
   }
@@ -179,37 +407,6 @@ export function CodeViewer({ content, fileName, syntaxTheme, binary = false, loa
           <path d="M24 3v6h6" stroke="currentColor" strokeWidth="1.5" fill="none" />
         </svg>
         <p style={{ color: 'var(--fg-dim)', marginTop: 8, fontSize: 12 }}>File not found at this commit</p>
-      </div>
-    )
-  }
-
-  if (fileType === 'image') {
-    // Content from git is base64 for images... but actually git show returns binary
-    // For images we just show a placeholder with info
-    return (
-      <div className="unsupported-file">
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" opacity="0.3">
-          <rect x="3" y="7" width="30" height="22" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
-          <circle cx="11" cy="15" r="3" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M3 24l8-8 6 6 4-4 12 11" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        </svg>
-        <p style={{ color: 'var(--fg-dim)', marginTop: 8, fontSize: 12 }}>
-          Image file — preview not available in git history<br />
-          <span style={{ fontSize: 11, opacity: 0.7 }}>{fileName}</span>
-        </p>
-      </div>
-    )
-  }
-
-  if (fileType === 'pdf') {
-    return (
-      <div className="unsupported-file">
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" opacity="0.3">
-          <path d="M6 3h18l6 6v24H6V3z" stroke="currentColor" strokeWidth="1.5" fill="none" />
-          <path d="M24 3v6h6" stroke="currentColor" strokeWidth="1.5" fill="none" />
-          <text x="9" y="24" fontSize="9" fill="currentColor" fontFamily="monospace">PDF</text>
-        </svg>
-        <p style={{ color: 'var(--fg-dim)', marginTop: 8, fontSize: 12 }}>PDF — cannot be previewed</p>
       </div>
     )
   }

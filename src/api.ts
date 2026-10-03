@@ -58,4 +58,12 @@ export const api = {
 
   getBlame: (repoPath: string, commit: string, file: string) =>
     get<BlameResponse>('/repo/blame', { path: repoPath, commit, file }),
+
+  getRawFileUrl: (repoPath: string, commit: string, file: string) => {
+    const url = new URL('/api/repo/raw', window.location.origin)
+    url.searchParams.set('path', repoPath)
+    url.searchParams.set('commit', commit)
+    url.searchParams.set('file', file)
+    return url.toString()
+  },
 }

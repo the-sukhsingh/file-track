@@ -4,6 +4,7 @@ import { simpleGit } from 'simple-git'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
+import { spawn } from 'child_process'
 
 const app = express()
 const PORT = 3001
@@ -146,6 +147,65 @@ app.get('/api/repo/file', async (req, res) => {
     // File might not exist at this commit
     res.status(404).json({ error: `File not found at commit ${commitHash}`, details: err.message })
   }
+})
+
+// ─── GET /api/repo/raw ────────────────────────────────────────────────────────
+// Streams raw binary/text file data with appropriate MIME type
+app.get('/api/repo/raw', (req, res) => {
+  const repoPath = req.query.path
+  const commitHash = req.query.commit || 'HEAD'
+  const filePath = req.query.file
+
+  if (!repoPath || !isValidRepo(repoPath)) {
+    return res.status(400).send('Invalid or missing git repository path')
+  }
+  if (!filePath) {
+    return res.status(400).send('Missing file path')
+  }
+
+  const ext = path.extname(filePath).toLowerCase()
+  const mimeTypes = {
+    '.pdf': 'application/pdf',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.bmp': 'image/bmp',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.ogv': 'video/ogg',
+    '.mov': 'video/quicktime',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.ogg': 'audio/ogg',
+    '.flac': 'audio/flac',
+    '.m4a': 'audio/mp4',
+    '.aac': 'audio/aac',
+    '.json': 'application/json',
+    '.xml': 'application/xml',
+    '.txt': 'text/plain',
+  }
+
+  const contentType = mimeTypes[ext] || 'application/octet-stream'
+  res.setHeader('Content-Type', contentType)
+  res.setHeader('Content-Disposition', `inline; filename="${path.basename(filePath)}"`)
+
+  const gitProcess = spawn('git', ['-C', repoPath, 'show', `${commitHash}:${filePath}`])
+
+  gitProcess.stdout.pipe(res)
+
+  gitProcess.stderr.on('data', (data) => {
+    console.error(`git error: ${data}`)
+  })
+
+  gitProcess.on('error', (err) => {
+    if (!res.headersSent) {
+      res.status(500).send(`Failed to read file: ${err.message}`)
+    }
+  })
 })
 
 // ─── GET /api/repo/file-commits ──────────────────────────────────────────────
